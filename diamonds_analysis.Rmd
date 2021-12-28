@@ -1,0 +1,536 @@
+---
+title: "diamonds_analysis"
+author: "João Calheiros"
+date: "28/12/2021"
+output: html_document
+---
+
+```{r loading packages, echo=TRUE, message=FALSE, warning=FALSE}
+library(tidyverse)
+library(ggplot2)        
+library(scales)         
+library(ggthemes)       
+library(gridExtra)
+```
+
+
+## Source
+The *diamonds* data set is available with the *ggplot2* package. It contains approximately 54K observations and 10 variables, which include carat, cut, color, clarity, depth, table, price, x (length in mm), y (width in mm), and z (depth in mm). It is a clean data set, with no missing values.
+
+
+
+## Data Description
+```{r echo=TRUE}
+summary(diamonds)
+
+# First 10 lines
+head(diamonds, 10)
+```
+
+* Notes:
++ Diamond color include 7 types ranging from D (best) to J (worst). 
++ Diamond clarity include 8 types: I1 (worst), SI2, SI1, VS2, VS1, VVS2, VVS1, IF (best). In the summary, both IF and I1 (the extremes) are categorized as 'other', having approximately 2.5K observations both toegether. 
++ Length in mm as the variable x.
++ Width in mm as the variable y.
++ Depth in mm as the variable z.
++ Small amounts of very expensive pieces drive the mean up. In this case the median is a better measurement variable of the center of the distribution.
+
+![](diamond-depth-and-table.png)
+
+## 1. Exploratory Analysis on Price (max, min, mean, median)
+
+### 1.1 By cut, color and clarity
+
+```{r Cut}
+diamonds %>% 
+  group_by(cut) %>% 
+  summarise(max_price = max(price),
+            min_price = min(price),
+            mean_price = mean(price),
+            median_price = median(price),
+            count = n())
+```
+```{r Color}
+diamonds %>% 
+  group_by(color) %>% 
+  summarise(max_price = max(price),
+            min_price = min(price),
+            mean_price = mean(price),
+            median_price = median(price),
+            count = n())
+```
+```{r Clarity}
+diamonds %>% 
+  group_by(clarity) %>% 
+  summarise(max_price = max(price),
+            min_price = min(price),
+            mean_price = mean(price),
+            median_price = median(price),
+            count = n())
+```
+## 1.2 Price distribution
+```{r price}
+ggplot(diamonds, aes(x = price)) +
+  geom_histogram(color = 'black', fill = 'SteelBlue', binwidth = 500) +
+  scale_x_continuous(labels = dollar, breaks = seq(0, 20000, 1000)) +
+  labs(title = 'Distribution of diamonds price',
+       x = 'Price', y = 'Count') +
+  theme_fivethirtyeight() +
+  theme(axis.title = element_text(), axis.text.x = element_text(angle=90))
+```
+
+### 1.2.1 Zoom in the largest peak of the price distribution
+
+```{r price zoomed in}
+ggplot(diamonds, aes(x = price)) +
+  geom_histogram(color = 'black', fill = 'SteelBlue', binwidth = 50) +
+  scale_x_continuous(labels = dollar, breaks = seq(0, 2000, 100)) +
+  labs(title = 'Price distribution of diamonds - 0-2000$',
+       x = 'Price', y = 'Count') +
+  coord_cartesian(c(0, 2000)) +
+  theme_fivethirtyeight() +
+  theme(axis.title = element_text(), axis.text.x = element_text(angle=90))
+```
+
+## 1.3 Price related prints
+
+**How many diamonds are in the price range**
+
+*Less than $500*
+```{r}
+diamonds %>% 
+  filter(price < 500) %>% 
+  summarise(count = n())
+```
+*Between $500 and $1000*
+```{r}
+diamonds %>% 
+  filter(price >= 500 & price < 1000) %>% 
+  summarise(count = n())
+```
+*Between $1000 and $1500*
+```{r}
+diamonds %>% 
+  filter(price >= 1000 & price < 1500) %>% 
+  summarise(count = n())
+```
+*Between $1500 and $2000*
+```{r}
+diamonds %>% 
+  filter(price >= 1500 & price < 2000) %>% 
+  summarise(count = n())
+```
+
+# 2. Further analysis on diamond prices
+## 2.1 Price distribution per cut
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+ggplot(diamonds, aes(x=price)) +
+  geom_histogram(color='black', fill='SteelBlue', binwidth = 30) +
+  scale_x_continuous(labels=dollar, breaks=seq(0, 5000, 200)) +
+  labs(title='Price distribution by cut quality - 0-5000$',
+       x = 'Price', y = 'Count') +
+  theme_fivethirtyeight() +
+  theme(axis.title = element_text(), axis.text.x = element_text(angle=90)) +
+  coord_cartesian(c(0, 5000)) +
+  facet_grid(cut~.) 
+
+qplot(x = price, data=diamonds) +
+  facet_wrap(~cut, scales = 'free') +
+  labs(x = 'Price', y = 'Count')
+```
+
+## 2.2 Summaries on the prices per quality cut
+```{r echo=TRUE}
+cut_price <- data.frame(diamonds$cut, diamonds$price)
+
+fair <- cut_price %>% 
+  filter(cut_price$diamonds.cut == 'Fair')
+summary(fair$diamonds.price)
+
+good <- cut_price %>% 
+  filter(cut_price$diamonds.cut == 'Good')
+summary(good$diamonds.price)
+
+v_good <- cut_price %>% 
+  filter(cut_price$diamonds.cut == 'Very Good')
+summary(v_good$diamonds.price)
+
+premium <- cut_price %>% 
+  filter(cut_price$diamonds.cut == 'Premium')
+summary(premium$diamonds.price)  
+
+ideal <- cut_price %>% 
+  filter(cut_price$diamonds.cut == 'Ideal')
+summary(ideal$diamonds.price)
+```
+
+## 2.3 Price per carat by cut quality
+```{r echo=TRUE}
+ggplot(diamonds, aes(x=price/carat)) +
+  geom_histogram(color='black', fill='SteelBlue', binwidth=0.05) +
+  labs(title='Price/Carat by Cut quality',
+       x = 'Price/Carat', y = 'Count') +
+  scale_x_log10(breaks = trans_breaks("log10", function(x) 10^x),
+                labels = trans_format("log10", math_format(10^.x))) +  
+  theme_fivethirtyeight() +
+  theme(axis.title = element_text(), axis.text.x = element_text()) +
+  facet_grid(cut~., scale = "free")
+```
+
+## 2.4 Price vs clarity for all cuts
+```{r echo=TRUE}
+ggplot(diamonds, aes(x=clarity, y=price, fill=cut)) +
+  geom_boxplot() +
+  labs(title='Price vs Clarity',
+       subtitle='per cut',
+       x = 'Clarity', y = 'Price') +
+  theme_fivethirtyeight() +
+  theme(axis.title = element_text(), axis.text.x = element_text())
+```
+
+## 2.5 Matrix with price vs clarity for all cuts per color
+```{r echo=TRUE}
+ggplot(diamonds, aes(x=clarity, y=price, fill=cut)) +
+  geom_boxplot() +
+  labs(x = 'Clarity', y = 'Price',
+       title='Distribution of price',
+       subtitle='across cut, clarity and color') +
+  theme_fivethirtyeight() +
+  theme(axis.title = element_text(), axis.text.x = element_text()) +
+  facet_grid(color~.)
+```
+
+## 2.6 Price per carat of diamonds across the different colors
+```{r echo=TRUE}
+ggplot(diamonds, aes(x=color, y=price/carat, fill=color)) +
+  geom_boxplot() +
+  labs(title='Distribution of price',
+       subsitle='across colors',
+       x='Color',
+       y='Price per Carat') +
+  coord_cartesian(ylim=c(1000, 6000)) +
+  scale_y_continuous(labels=dollar)
+```
+
+## 2.7 Price vs carat with top 1% of both omitted
+```{r echo=TRUE}
+ggplot(diamonds, aes(x=carat, y=price)) +
+  geom_point(alpha=.05) +
+  labs(title='Price vs Carat',
+       subtitle='Omitted top 1%') +
+  scale_x_continuous(limits=c(0, quantile(diamonds$carat, 0.99))) +
+  scale_y_continuous(breaks=seq(0, 18000, 2000),
+                     limits=c(0, quantile(diamonds$price, 0.99)),
+                     labels=dollar) +
+  theme_fivethirtyeight() +
+  theme(axis.title = element_text(), axis.text.x = element_text()) +
+  theme(plot.subtitle = element_text(size=10))
+```
+
+**Takeaways**
+
+1. **Cut**
+  + The number of *Ideal* diamonds(21551) is much larger than the others but its average price($3458) its also the lowest;
+  + The number of *Fair* diamonds(1610) is the lowest and its average price($4359) its the second highest;
+  + The average price for *Premium* diamonds($4584) is the highest for all cuts;
+  
+2. **Color**
+  + Color *G* is the most represented in the data set - 11292 occurrences; 
+  + Color *J* is the least represented in the data set - 2808 occurrences - while still having the highest average price: $5324;
+  + The lowest average price is for the color *E*:  $3077;
+  
+3. **Clarity**
+  + Clarity of *SI1* and *VS2* are the most represented with 13065 and 12258 occurrences respectively;
+  + The highest average price belongs to clarity *SI2* - $5063 - which is greater than all the others by at least $1000;
+  + *I1*, *SI1*, *VS2* and *VS1* average prices range between $3800-$3900;
+  + The lowest average price belongs to *VVS1* with a value of $2523.
+
+## 3. Interquartile range (IQR) 
+### 3.1 For the *best* and *worst* colors
+```{r echo=TRUE}
+diamonds %>% 
+  group_by(color) %>% 
+  filter(color == 'D') %>% 
+  summarise(quartile_25 = quantile(price, 0.25),
+            quartile_75 = quantile(price, 0.75),
+            IQR = quartile_75 - quartile_25)
+
+diamonds %>% 
+  group_by(color) %>% 
+  filter(color == 'J') %>% 
+  summarise(quartile_25 = quantile(price, 0.25),
+            quartile_75 = quantile(price, 0.75),
+            IQR = quartile_75 - quartile_25)
+```
+
+### 3.2 For the *best* and *worst* clarities
+```{r echo=TRUE}
+diamonds %>% 
+  group_by(clarity) %>% 
+  filter(clarity == 'I1') %>% 
+  summarise(quartile_25 = quantile(price, 0.25),
+            quartile_75 = quantile(price, 0.75),
+            IQR = quartile_75 - quartile_25)
+diamonds %>% 
+  group_by(clarity) %>% 
+  filter(clarity == 'IF') %>% 
+  summarise(quartile_25 = quantile(price, 0.25),
+            quartile_75 = quantile(price, 0.75),
+            IQR = quartile_75 - quartile_25)
+```
+
+### 3.3 For the *best* and *worst* cuts
+```{r echo=TRUE}
+diamonds %>% 
+  group_by(cut) %>% 
+  filter(cut == 'Fair') %>% 
+  summarise(quartile_25 = quantile(price, 0.25),
+            quartile_75 = quantile(price, 0.75),
+            IQR = quartile_75 - quartile_25)
+diamonds %>% 
+  group_by(cut) %>% 
+  filter(cut == 'Ideal') %>% 
+  summarise(quartile_25 = quantile(price, 0.25),
+            quartile_75 = quantile(price, 0.75),
+            IQR = quartile_75 - quartile_25)
+```
+
+## 4. Distribution of the weight (carat) of diamonds 
+### 4.1 Frequency polygon
+```{r echo=TRUE}
+ggplot(diamonds, aes(x=carat)) +
+  geom_freqpoly(binwidth=0.1) +
+  scale_x_continuous() +
+  scale_y_continuous() +
+  labs(title='Frequency of diamonds weight',
+       subsitle='across colors',
+       x='Carat',
+       y='Count') +
+  theme_fivethirtyeight() +
+  theme(axis.title = element_text(), axis.text.x = element_text())
+```
+
+### 4.2 Frequency polygon (in more depth)
+```{r echo=TRUE}
+ggplot(diamonds, aes(x=carat)) +
+  geom_freqpoly(binwidth=0.05) +
+  scale_x_continuous(breaks=c(0.1, 0.5, 0.8, 1.2, 1.5, 2.0, 3.0, 5.0), expand = c(0,0)) +
+  scale_y_continuous(expand=c(0,0)) +
+  geom_vline(xintercept=c(0.2, 0.4, 0.7, 0.79, 1.04, 5.01), color='#7daa8e', linetype='longdash') +
+  labs(title='Frequency of diamonds weight',
+       subtitle='Green vlines - summary(diamonds$carat)',
+       x='Carat',
+       y='Count') +
+  theme_fivethirtyeight() +
+  theme(axis.title = element_text(), axis.text.x = element_text()) +
+  theme(plot.subtitle = element_text(size=10)) 
+
+summary(diamonds$carat)
+```
+
+## 5. Correlation of price and x, y and z
+### 5.1 Plots
+### 5.1.1 Scatter plot of price vs x
+```{r echo=TRUE}
+ggplot(diamonds, aes(x=x, y=price)) +
+  geom_point(alpha=.05) +
+  coord_cartesian(xlim=c(3.5, 11))+
+  labs(title='Price vs X') +
+  scale_y_continuous(breaks=seq(0, 20000, 2000), label=dollar) 
+```
+
+### 5.1.2 Scatter plot of price vs y
+```{r echo=TRUE}
+ggplot(diamonds, aes(x=y, y=price)) +
+  geom_point(alpha=.05) +
+  coord_cartesian(xlim=c(3.5, 11))+
+  labs(title='Price vs Y') +
+  scale_y_continuous(breaks=seq(0, 20000, 2000), label=dollar) 
+```
+
+### 5.1.3 Scatter plot of price vs z
+```{r echo=TRUE}
+ggplot(diamonds, aes(x=z, y=price)) +
+  geom_point(alpha=.05) +
+  coord_cartesian(xlim=c(1, 7))+
+  labs(title='Price vs Z') +
+  scale_y_continuous(breaks=seq(0, 20000, 2000), label=dollar) 
+```
+
+* Note: Data appears to have an artificial barrier at $19 000
+
+### 5.2 Correlation measures
+```{r echo=TRUE}
+# For the p-value, a typical threshold is 0.05, anything smaller counts as statistically significant
+
+# For price vs X
+with(diamonds, cor.test(price, x))
+
+# For price vs Y
+with(diamonds, cor.test(price, y))
+
+# For price vs Z
+with(diamonds, cor.test(price, z))
+```
+* Note: There is a strong correlation between the price and the x, y and z values
+
+## 6. Depth
+### 6.1 Scatter Plot of price vs depth
+```{r echo=TRUE}
+ggplot(diamonds, aes(x=depth, y=price)) +
+  geom_point(alpha=.05) +
+  coord_cartesian(xlim=c(40, 80))+
+  labs(title='Price vs Depth') +
+  scale_y_continuous(breaks=seq(0, 20000, 2000), label=dollar) 
+```
+
+### 6.2 Add transparency and labels every 2 units
+```{r echo=TRUE}
+ggplot(diamonds, aes(x=depth, y=price)) +
+  labs(title='Price vs Depth') +
+  geom_point(alpha=1/100) +
+  scale_x_continuous(breaks=seq(min(diamonds$depth), max(diamonds$depth), 2), labels=seq(min(diamonds$depth), max(diamonds$depth), 2))
+
+with(diamonds,  cor.test(price, depth))
+```
+
+* Note: Depth does not influence the price of diamonds. That is visible in the plots and also because p-value = 0.0134 and cor = -0.0106474.
+
+## 7. Price vs Volume
+* Note: this is a rough approximation of a diamond's volume
+```{r echo=TRUE}
+diamonds_v <- diamonds %>% 
+  mutate(volume=x*y*z)
+
+diamonds_v2 <- diamonds_v %>% 
+  filter(volume != 0, 
+         volume <= 800)
+```
+
+### 7.1 Scatter Plot of price vs volume
+```{r echo=TRUE}
+ggplot(diamonds_v, aes(x=volume, y=price)) +
+  geom_point() +
+  labs(title='Price vs Volume') +
+  theme_fivethirtyeight() +
+  theme(axis.title = element_text())
+```
+
+*   Notes:
++   Volumes ranging from 0-500 hold the huge majority of diamonds, whatever the price
++   Volumes ranging from 1000-3000 seem to be nonexistent
++   3 outliers  1 of which expands the plot(horizontaly) by a very significant size
++ Diamonds with volumes near 0 exist
+
+### 7.2 Correlation of price and volume
+
+*   Note: Excluding diamonds with volume of 0 or greater than 800
+```{r echo=TRUE}
+with(subset(diamonds_v, !(volume == 0 | volume >= 800)), cor.test(price, volume))
+```
+
+### 7.3 Scatter Plot of price vs volume (omitted top 1%)
+```{r echo=TRUE}
+ggplot(diamonds_v2, aes(x=volume, y=price)) +
+  geom_point(alpha=.05) +
+  geom_smooth(method='lm') +
+  labs(title='Price vs Volume',
+       subtitle='Omitted top 1%') +
+  scale_y_continuous(limits=c(0, 20000)) +
+  theme_fivethirtyeight() +
+  theme(axis.title = element_text()) +
+  theme(plot.subtitle = element_text(size=10))
+```
+
+## 8. Information on diamonds by clarity
+*   I created a new data frame with the following columns:
++   mean_price
++   median_price
++   min_price
++   max_price
++   n (number of diamonds on each level of clarity)
+```{r echo=TRUE}
+diamondsByClarity <- diamonds %>% 
+  group_by(clarity) %>% 
+  summarise(mean_price = mean(price),
+            median_price = median(price),
+            min_price = min(price),
+            max_price = max(price),
+            count = n()) %>% 
+  arrange(clarity)
+```
+
+### 8.1 Mean price vs color and clarity
+### 8.1.1 Create summary dataframes
+```{r echo=TRUE}
+# By clarity and color separately
+diamonds_mp_cla <- diamonds %>% 
+  group_by(clarity) %>% 
+  summarise(mean_price = mean(price))
+
+diamonds_mp_col <- diamonds %>% 
+  group_by(color) %>% 
+  summarise(mean_price = mean(price))
+```
+
+### 8.1.2 Plot the summary dataframes
+```{r echo=TRUE}
+# Using library(gridExtra)
+plt1 <- ggplot(diamonds_mp_cla, aes(x=clarity, y=mean_price, fill=clarity)) +
+  geom_bar(stat = "identity", color='black') +
+  guides(fill=guide_legend(ncol=2))
+
+plt2 <- ggplot(diamonds_mp_col, aes(x=color, y=mean_price, fill=color)) +
+  geom_bar(stat = "identity", color='black') +
+  guides(fill=guide_legend(ncol=2))
+
+grid.arrange(plt1, plt2)
+```
+
+*   Notes:
++   Upward trend in average price as color goes from D to J;
++   Downward trend in average price as clarity goes from I1 to IF 
+
+## 9. Aditional plots
+### 9.1 Price vs table by color
+```{r echo=TRUE}
+ggplot(diamonds, aes(x=table, y=price, color=cut)) +
+  geom_point(size=2.5) +
+  labs(title='Price vs Table',
+       x='table',
+       y='price') +
+  scale_x_continuous(breaks=seq(50, 80, 2),
+                     limits=c(50, 80)) +
+  scale_color_brewer(palette = 'RdGy') +
+  theme_fivethirtyeight() +
+  theme(axis.title = element_text(), axis.text.x = element_text())
+```
+
+### 9.2 Price vs volume by clarity
+*   Notes:
++   Top 1% of diamond volumes omitted 
++   Again, this is a rough approximation of a diamond's volume
+```{r echo=TRUE}
+# Add volume column
+diamonds <- diamonds %>% 
+  mutate(volume = x * y * z) 
+
+ggplot(subset(diamonds, volume <= quantile(volume, 0.99) & volume > 0), aes(x=volume, y=price, color=clarity)) +
+  geom_point(size=2.5) +
+  scale_y_log10(labels=dollar, 
+                breaks=c(0, 1000, 10000)) +
+  scale_color_brewer(palette = 'BrBG') +
+  theme_minimal()
+```
+
+### 9.3 Price/carat ratio of diamonds
+*   Notes: 
++   Variable x is assigned to cut
++   Points are colored by diamond color
++   Plot is faceted by clarity
+```{r echo=TRUE}
+ggplot(diamonds, aes(x=cut, y=price/carat, color=color)) +
+  geom_jitter() +
+  facet_wrap(~clarity) +
+  scale_color_brewer(palette = 'BrBG')
+```
